@@ -1,0 +1,398 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "adminUsername": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the Administrator of the new VM and Domain"
+      }
+    },
+    "location": {
+      "type": "string",
+      "allowedValues": [
+        "centralus",
+        "eastus",
+        "eastus2",
+        "francecentral",
+        "northeurope",
+        "southeastasia",
+        "ukwest",
+        "westus2",
+        "westeurope",
+        "japaneast"
+      ],
+      "metadata": {
+        "description": "Location for the VM, only certain regions support zones during preview."
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "The password for the Administrator account of the new VM and Domain"
+      }
+    },
+    "domainName": {
+      "type": "string",
+      "defaultValue": "contoso.local",
+      "metadata": {
+        "description": "The FQDN of the AD Domain created "
+      }
+    },
+     "vmSize": {
+      "type": "string",
+      "defaultValue": "Standard_D2s_v3",
+      "metadata": {
+        "description": "Size of the VM for the controller"
+      }
+    },
+    "virtualNetworkName": {
+        "type": "string",
+        "defaultValue": "vnet-hub",
+        "metadata": {
+            "description": "Virtual Network for Active Directory VM"
+        }
+    },
+    "adSubnetName": {
+        "type": "string",
+        "defaultValue": "adSubnet",
+        "metadata": {
+            "description": "Subnet for hosting Active Directory VM"
+        }
+    },
+    "adSubnet": {
+        "type": "string",
+        "defaultValue": "10.0.4.0/29",
+        "metadata": {
+            "description": "Network range for Active Directory subnet"
+        }
+    },
+    "ipAddress": {
+      "type": "array",
+      "defaultValue": [
+      "10.0.4.4",
+      "10.0.4.5"
+      ]
+    },
+    "_artifactsLocation": {
+      "type": "string",
+      "metadata": {
+        "description": "The location of resources such as templates and DSC modules that the script is dependent"
+      },
+      "defaultValue": "[deployment().properties.templateLink.uri]"
+    },
+    "_artifactsLocationSasToken": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Auto-generated token to access _artifactsLocation"
+      },
+      "defaultValue": ""
+    }
+  },
+  "variables": {
+    "imagePublisher": "MicrosoftWindowsServer",
+    "imageOffer": "WindowsServer",
+    "imageSKU": "2019-Datacenter",
+    "adSubnetRef": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworkName'), parameters('adSubnetName'))]",
+    "nicTemplateUri": "[uri(parameters('_artifactsLocation'), concat('nestedtemplates/nic.json', parameters('_artifactsLocationSasToken')))]",
+    "vmName": [
+      "adPDC",
+      "adBDC"
+    ],
+    "nicName": [
+      "adPDCNic",
+      "adBDCNic"
+    ],
+    "configureADBDCTemplateUri": "[uri(parameters('_artifactsLocation'), concat('nestedtemplates/configureADBDC.json', parameters('_artifactsLocationSasToken')))]",
+    "adBDCConfigurationModulesURL": "[uri(parameters('_artifactsLocation'), 'DSC/ConfigureADBDC.ps1.zip')]",
+    "adBDCConfigurationScript": "ConfigureADBDC.ps1",
+    "adBDCConfigurationFunction": "ConfigureADBDC",
+    "configureADCSTemplateUri": "[uri(parameters('_artifactsLocation'), concat('nestedtemplates/configureADCS.json', parameters('_artifactsLocationSasToken')))]",
+    "adCSConfigurationModulesURL": "[uri(parameters('_artifactsLocation'), 'DSC/ADCSEnterpriseRootCA.ps1.zip')]",
+    "adCSConfigurationScript": "ADCSEnterpriseRootCA.ps1",
+    "adCSConfigurationFunction": "ADCSEnterpriseRootCA"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/virtualNetworks/subnets",
+      "apiVersion": "2018-11-01",
+      "name": "[concat(parameters('virtualNetworkName') ,'/',parameters('adSubnetName'))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "addressPrefix": "[parameters('adSubnet')]"
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2019-02-01",
+      "name": "[variables('nicName')[copyIndex()]]",
+      "location": "[parameters('location')]",
+      "copy": {
+        "name": "nicLoop",
+        "count": 2
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworkName'), parameters('adSubnetName'))]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Static",
+              "privateIPAddress": "[parameters('iPAddress')[copyIndex()]]",
+              "subnet": {
+                "id": "[variables('adSubnetRef')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2019-03-01",
+      "name": "[variables('vmName')[copyIndex()]]",
+      "location": "[parameters('location')]",
+      "zones": [
+        "[copyIndex(1)]"
+      ],
+      "dependsOn": [
+        "nicLoop"
+      ],
+      "copy": {
+        "name": "vmLoop",
+        "count": 2
+      },
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('vmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[variables('vmName')[copyIndex()]]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[variables('imageSKU')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "caching": "ReadOnly",
+            "createOption": "FromImage",
+            "managedDisk": {
+              "storageAccountType": "StandardSSD_LRS"
+            }
+          },
+          "dataDisks": [
+            {
+              "diskSizeGB": 64,
+              "lun": 0,
+              "createOption": "Empty"
+            }
+          ]
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName')[copyIndex()])]"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "apiVersion": "2019-03-01",
+      "name": "[concat(variables('vmName')[0], '/CreateAdForest')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "vmLoop"
+      ],
+      "properties": {
+        "publisher": "Microsoft.Powershell",
+        "type": "DSC",
+        "typeHandlerVersion": "2.24",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "configuration": {
+            "url": "[uri(parameters('_artifactsLocation'), 'DSC/CreateADPDC.ps1.zip')]",
+            "script": "CreateADPDC.ps1",
+            "function": "CreateADPDC"
+          },
+          "configurationArguments": {
+            "domainName": "[parameters('domainName')]"
+          }
+        },
+        "protectedSettings": {
+          "configurationUrlSasToken": "[parameters('_artifactsLocationSasToken')]",
+          "configurationArguments": {
+            "adminCreds": {
+              "userName": "[parameters('adminUserName')]",
+              "password": "[parameters('adminPassword')]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "apiVersion": "2019-03-01",
+      "name": "[concat(variables('vmName')[1], '/PrepareBDC')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "vmLoop"
+      ],
+      "properties": {
+        "publisher": "Microsoft.Powershell",
+        "type": "DSC",
+        "typeHandlerVersion": "2.24",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "configuration": {
+            "url": "[uri(parameters('_artifactsLocation'), 'DSC/PrepareADBDC.ps1.zip')]",
+            "script": "PrepareADBDC.ps1",
+            "function": "PrepareADBDC"
+          },
+          "configurationArguments": {
+            "DNSServer": "[parameters('iPAddress')[0]]"
+          }
+        },
+        "protectedSettings": {
+          "configurationUrlSasToken": "[parameters('_artifactsLocationSasToken')]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2018-11-01",
+      "name": "UpdateBDCNIC",
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines/extensions', variables('vmName')[0], 'CreateAdForest')]",
+        "[resourceId('Microsoft.Compute/virtualMachines/extensions', variables('vmName')[1], 'PrepareBDC')]"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('nicTemplateUri')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "nicName": {
+            "value": "[variables('nicName')[1]]"
+          },
+          "ipConfigurations": {
+            "value": [
+              {
+                "name": "ipconfig1",
+                "properties": {
+                  "privateIPAllocationMethod": "Static",
+                  "privateIPAddress": "[parameters('ipAddress')[1]]",
+                  "subnet": {
+                    "id": "[variables('adSubnetRef')]"
+                  }
+                }
+              }
+            ]
+          },
+          "dnsServers": {
+            "value": [
+              "[parameters('ipAddress')[0]]"
+            ]
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2018-11-01",
+      "name": "ConfiguringBackupADDomainController",
+      "dependsOn": [
+        "UpdateBDCNIC"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('configureADBDCTemplateUri')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "extName": {
+            "value": "[concat(variables('vmName')[1], '/PrepareBDC')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "adminUsername": {
+            "value": "[parameters('adminUsername')]"
+          },
+          "adminPassword": {
+            "value": "[parameters('adminPassword')]"
+          },
+          "domainName": {
+            "value": "[parameters('domainName')]"
+          },
+          "adBDCConfigurationScript": {
+            "value": "[variables('adBDCConfigurationScript')]"
+          },
+          "adBDCConfigurationFunction": {
+            "value": "[variables('adBDCConfigurationFunction')]"
+          },
+          "adBDCConfigurationModulesURL": {
+            "value": "[variables('adBDCConfigurationModulesURL')]"
+          },
+          "_artifactsLocationSasToken": {
+            "value": "[parameters('_artifactsLocationSasToken')]"
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2018-11-01",
+      "name": "ConfiguringEnterpriseRootCA",
+      "dependsOn": [
+        "ConfiguringBackupADDomainController"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('configureADCSTemplateUri')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "extName": {
+            "value": "[concat(variables('vmName')[0], '/CreateAdForest')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "adminUsername": {
+            "value": "[parameters('adminUsername')]"
+          },
+          "adminPassword": {
+            "value": "[parameters('adminPassword')]"
+          },
+          "adCSConfigurationScript": {
+            "value": "[variables('adCSConfigurationScript')]"
+          },
+          "adCSConfigurationFunction": {
+            "value": "[variables('adCSConfigurationFunction')]"
+          },
+          "adCSConfigurationModulesURL": {
+            "value": "[variables('adCSConfigurationModulesURL')]"
+          },
+          "_artifactsLocationSasToken": {
+            "value": "[parameters('_artifactsLocationSasToken')]"
+          }
+        }
+      }
+    }
+  ]
+}
