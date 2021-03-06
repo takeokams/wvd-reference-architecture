@@ -94,7 +94,6 @@
     "imageOffer": "WindowsServer",
     "imageSKU": "2019-Datacenter",
     "adSubnetRef": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworkName'), parameters('adSubnetName'))]",
-    "nicTemplateUri": "[uri(parameters('_artifactsLocation'), concat('nestedtemplates/nic.json', parameters('_artifactsLocationSasToken')))]",
     "vmName": [
       "adPDC",
       "adBDC"
@@ -125,12 +124,8 @@
     {
       "type": "Microsoft.Network/networkInterfaces",
       "apiVersion": "2019-02-01",
-      "name": "[variables('nicName')[copyIndex()]]",
+      "name": "[variables('nicName')[0]]",
       "location": "[parameters('location')]",
-      "copy": {
-        "name": "nicLoop",
-        "count": 2
-      },
       "dependsOn": [
         "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworkName'), parameters('adSubnetName'))]"
       ],
@@ -140,7 +135,7 @@
             "name": "ipconfig1",
             "properties": {
               "privateIPAllocationMethod": "Static",
-              "privateIPAddress": "[parameters('iPAddress')[copyIndex()]]",
+              "privateIPAddress": "[parameters('iPAddress')[0]]",
               "subnet": {
                 "id": "[variables('adSubnetRef')]"
               }
@@ -152,24 +147,20 @@
     {
       "type": "Microsoft.Compute/virtualMachines",
       "apiVersion": "2019-03-01",
-      "name": "[variables('vmName')[copyIndex()]]",
+      "name": "[variables('vmName')[0]]",
       "location": "[parameters('location')]",
       "zones": [
-        "[copyIndex(1)]"
+        "1"
       ],
       "dependsOn": [
-        "nicLoop"
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName')[0])]"
       ],
-      "copy": {
-        "name": "vmLoop",
-        "count": 2
-      },
       "properties": {
         "hardwareProfile": {
           "vmSize": "[parameters('vmSize')]"
         },
         "osProfile": {
-          "computerName": "[variables('vmName')[copyIndex()]]",
+          "computerName": "[variables('vmName')[0]]",
           "adminUsername": "[parameters('adminUsername')]",
           "adminPassword": "[parameters('adminPassword')]"
         },
@@ -198,7 +189,7 @@
         "networkProfile": {
           "networkInterfaces": [
             {
-              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName')[copyIndex()])]"
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName')[0])]"
             }
           ]
         }
@@ -210,7 +201,7 @@
       "name": "[concat(variables('vmName')[0], '/CreateAdForest')]",
       "location": "[parameters('location')]",
       "dependsOn": [
-        "vmLoop"
+        "[resourceId('Microsoft.Compute/virtualMachines', variables('vmName')[0])]"
       ],
       "properties": {
         "publisher": "Microsoft.Powershell",
@@ -239,12 +230,91 @@
       }
     },
     {
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2019-02-01",
+      "name": "[variables('nicName')[1]]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworkName'), parameters('adSubnetName'))]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Static",
+              "privateIPAddress": "[parameters('iPAddress')[1]]",
+              "subnet": {
+                "id": "[variables('adSubnetRef')]"
+              }
+            }
+          }
+        ],
+        "dnsSettings": {
+          "dnsServers": [
+            "[parameters('ipAddress')[0]]"
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2019-03-01",
+      "name": "[variables('vmName')[1]]",
+      "location": "[parameters('location')]",
+      "zones": [
+        "2"
+      ],
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines/extensions', variables('vmName')[0], 'CreateAdForest')]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('vmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[variables('vmName')[1]]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[variables('imageSKU')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "caching": "ReadOnly",
+            "createOption": "FromImage",
+            "managedDisk": {
+              "storageAccountType": "StandardSSD_LRS"
+            }
+          },
+          "dataDisks": [
+            {
+              "diskSizeGB": 64,
+              "lun": 0,
+              "createOption": "Empty"
+            }
+          ]
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName')[1])]"
+            }
+          ]
+        }
+      }
+    },
+    {
       "type": "Microsoft.Compute/virtualMachines/extensions",
       "apiVersion": "2019-03-01",
       "name": "[concat(variables('vmName')[1], '/PrepareBDC')]",
       "location": "[parameters('location')]",
       "dependsOn": [
-        "vmLoop"
+        "[resourceId('Microsoft.Compute/virtualMachines', variables('vmName')[1])]"
       ],
       "properties": {
         "publisher": "Microsoft.Powershell",
@@ -269,52 +339,9 @@
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2018-11-01",
-      "name": "UpdateBDCNIC",
-      "dependsOn": [
-        "[resourceId('Microsoft.Compute/virtualMachines/extensions', variables('vmName')[0], 'CreateAdForest')]",
-        "[resourceId('Microsoft.Compute/virtualMachines/extensions', variables('vmName')[1], 'PrepareBDC')]"
-      ],
-      "properties": {
-        "mode": "Incremental",
-        "templateLink": {
-          "uri": "[variables('nicTemplateUri')]",
-          "contentVersion": "1.0.0.0"
-        },
-        "parameters": {
-          "nicName": {
-            "value": "[variables('nicName')[1]]"
-          },
-          "ipConfigurations": {
-            "value": [
-              {
-                "name": "ipconfig1",
-                "properties": {
-                  "privateIPAllocationMethod": "Static",
-                  "privateIPAddress": "[parameters('ipAddress')[1]]",
-                  "subnet": {
-                    "id": "[variables('adSubnetRef')]"
-                  }
-                }
-              }
-            ]
-          },
-          "dnsServers": {
-            "value": [
-              "[parameters('ipAddress')[0]]"
-            ]
-          },
-          "location": {
-            "value": "[parameters('location')]"
-          }
-        }
-      }
-    },
-    {
-      "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2018-11-01",
       "name": "ConfiguringBackupADDomainController",
       "dependsOn": [
-        "UpdateBDCNIC"
+        "[resourceId('Microsoft.Compute/virtualMachines/extensions', variables('vmName')[1], 'PrepareBDC')]"
       ],
       "properties": {
         "mode": "Incremental",
@@ -358,7 +385,7 @@
       "apiVersion": "2018-11-01",
       "name": "ConfiguringEnterpriseRootCA",
       "dependsOn": [
-        "ConfiguringBackupADDomainController"
+        "[resourceId('Microsoft.Compute/virtualMachines/extensions', variables('vmName')[0], 'CreateAdForest')]"
       ],
       "properties": {
         "mode": "Incremental",
