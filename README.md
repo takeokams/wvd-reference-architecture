@@ -33,7 +33,7 @@ Preview機能などを積極的に取り入れているため、実際の本番�
 - つまり、この環境だけでも、WVDでなく、Bastion経由のVM環境であればほどほど使えます
 
 # リファレンスアーキテクチャ (Active Directory)
-![Active Directory](images/wvd-ra-ra.png)
+![Active Directory](images/wvd-ra-ad.png)
 
 下記からデプロイすると、既存環境に対してActive Directoryのドメインコントローラがデプロイされます。
 
