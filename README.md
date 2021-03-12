@@ -49,7 +49,7 @@ WVDをある程度知っている方向けです。初心者向けではあり�
 
 補足
 - ハブネットワークにデプロイします。通常、上でデフォルト値で作ったVNetに対してデプロイする場合は、ネットワークの値を変更する必要はありません
-- Availability Zoneを前提としていますので、対応している東日本リージョンなどにデプロイしてください。また、上記で作成したVNetと同じリージョンである必要があります
+- Availability Zoneを前提としていますので、対応している東日本リージョンなどにデプロイしてください。上記で作成したVNetと同じリージョンである必要があります
 - ドメイン名はAzure Active Directoryと同じものが望ましいですが、必須ではありません
 - 2つのWindows Server VM、PDCとBDC、PDCに対してはAD Certificate ServicesのEnterprise Root CAがこのデプロイで構成されます
 - オンプレミスでActive Directoryを運用していて、同じアイデンティティを使いたい場合は、オンプレミスとつなげる必要があるのでこのテンプレートは使わず独自に構成する必要があります
@@ -80,6 +80,7 @@ Azure Firewall PremiumのTLS Inspectionで使う証明書に、Active Directory 
 ![プロファイルストレージ](images/wvd-ra-storage.png)
 
 下記からデプロイすると、既存環境に対してAzure Filesのストレージアカウントが作成され、共有ボリュームが設定されます。
+
 [![Deploy To Azure](https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/deploytoazure.svg?sanitize=true)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3a%2f%2fraw.githubusercontent.com%2ftakeokams%2fwvd-reference-architecture%2fmain%2fazurefilesdeploy.json)
 
 補足
@@ -119,7 +120,7 @@ Connect-AzAccount
 #### 作成したストレージアカウントのActive Directoryへの登録
 これでコンピュータオブジェクトがADに作成され、アクセスするための権限設定がADのユーザーに対してできるようになります
 ```powershell
-# 実際のサブスクリプションIDに置き換える必要あり、Get-AzSubscriptionで確認可能
+# 実際のサブスクリプションIDに置き換える必要あり、Get-AzSubscription で確認可能
 $SubscriptionId = "00000000-0000-0000-0000-000000000000"
 # ストレージアカウントがあるリソースグループ名に置き換える必要あり
 $ResourceGroupName = "wvd-rg"
@@ -202,7 +203,7 @@ Set-Acl $folder_path -AclObject $acl
 $folder_path = $mount_point + '\' + 'Profiles'
 mkdir $folder_path
 
-$aclparam = @("CREATOR OWNER", "FullControl", "ContainerInherit,ObjectInherit", "NoPropagateInherit", "Allow")
+$aclparam = @("CREATOR OWNER", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
 $rule = New-Object  System.Security.AccessControl.FileSystemAccessRule  $aclparam
 $acl = Get-Acl $folder_path
 $acl.SetAccessRuleProtection($true,$false) #継承削除
@@ -225,7 +226,7 @@ Set-Acl $folder_path -AclObject $acl
 $folder_path = $mount_point + '\' + 'ODFC'
 mkdir $folder_path
 
-$aclparam = @("CREATOR OWNER", "FullControl", "ContainerInherit,ObjectInherit", "NoPropagateInherit", "Allow")
+$aclparam = @("CREATOR OWNER", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
 $rule = New-Object  System.Security.AccessControl.FileSystemAccessRule  $aclparam
 $acl = Get-Acl $folder_path
 $acl.SetAccessRuleProtection($true,$false) #継承削除
