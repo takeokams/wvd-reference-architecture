@@ -15,7 +15,7 @@ WVDをある程度知っている方向けです。初心者向けではあり�
 
 をお勧めします。
 
-デプロイの手順については、画面ショットを含めてQiitaに「[Windows Virtual Desktop (WVD)のリファレンスアーキテクチャを描いてARMテンプレートを作ってみた](https://qiita.com/takeokams/items/b292e35f8f8cc11c8bee)」を公開してありますので、こちらもご参考ください。
+デプロイの手順については、画面ショットを含めてQiitaに「[Windows Virtual Desktop (WVD)のリファレンスアーキテクチャとARMテンプレート](https://qiita.com/takeokams/items/b292e35f8f8cc11c8bee)」を公開してありますので、こちらもご参考ください。
 
 # リファレンスアーキテクチャ (全体像)
 ![リファレンスアーキテクチャ](images/wvd-ra.png)
