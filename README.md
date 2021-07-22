@@ -1,21 +1,21 @@
-# Windows Virtual Desktop Reference Architecture
+# Azure Virtual Desktop Reference Architecture
 
-本番を想定したWindows Virtual Desktopのリファレンスアーキテクチャ
+本番を想定したAzure Virtual Desktopのリファレンスアーキテクチャ
 
-Preview機能などを積極的に取り入れているため、実際の本番環境で使うには十分注意が必要です。WVD環境を自社で構築、運用したり、SIでWVD環境構築を担い今後の参考アーキテクチャを求めている方に向けて公開しています。
+Preview機能などを積極的に取り入れているため、実際の本番環境で使うには十分注意が必要です。AVD環境を自社で構築、運用したり、SIでAVD環境構築を担い今後の参考アーキテクチャを求めている方に向けて公開しています。
 
 このアーキテクチャでは、Azureにまつわるインフラ部分のみをカバーしています。Windowsのイメージ管理や各種の制御は含まれれていません。また、Azure Monitorによる監視は含まれていますが、バックアップも必要に応じて検討する必要があります。
 
 ここで紹介するアーキテクチャは一例にすぎませんが、典型的なアーキテクチャであり、考慮するべきポイントを実例をもとにとらえることができます。
 
-WVDをある程度知っている方向けです。初心者向けではありません。
+AVDをある程度知っている方向けです。初心者向けではありません。
 初心者の方には
-- [サクッと検証用Windows Virtual Desktopを構築](https://qiita.com/takeokams/items/ef26b60306d1cb5eee27)
-- [Windows Virtual Desktop (WVD) クイックスタート](https://qiita.com/takeokams/items/26732ec60690f432b50d)
+- [サクッと検証用Azure Virtual Desktopを構築](https://qiita.com/takeokams/items/ef26b60306d1cb5eee27)
+- [Azure Virtual Desktop (AVD) クイックスタート](https://qiita.com/takeokams/items/26732ec60690f432b50d)
 
 をお勧めします。
 
-デプロイの手順については、画面ショットを含めてQiitaに「[Windows Virtual Desktop (WVD)のリファレンスアーキテクチャとARMテンプレート](https://qiita.com/takeokams/items/b292e35f8f8cc11c8bee)」を公開してありますので、こちらもご参考ください。
+デプロイの手順については、画面ショットを含めてQiitaに「[Azure Virtual Desktop (AVD)のリファレンスアーキテクチャとARMテンプレート](https://qiita.com/takeokams/items/b292e35f8f8cc11c8bee)」を公開してありますので、こちらもご参考ください。
 
 # リファレンスアーキテクチャ (全体像)
 ![リファレンスアーキテクチャ](images/wvd-ra.png)
@@ -38,7 +38,7 @@ WVDをある程度知っている方向けです。初心者向けではあり�
 
 補足
 - 次のAD作成を行う場合は、Availability Zoneが必須となるので、東日本リージョンなどにデプロイしてください。西日本リージョンは対応していません
-- Azure Firewall Premiumには、TLS Inspectionのための自己署名証明書のセット、WVDで必要とされるルールやログ取得の設定がされますが、他のインターネット向けのアクセスは許可されません
+- Azure Firewall Premiumには、TLS Inspectionのための自己署名証明書のセット、AVDで必要とされるルールやログ取得の設定がされますが、他のインターネット向けのアクセスは許可されません
 - VPN Gatewayの作成はオプションです。ExpressRouteで接続する場合はfalseのままにして、オンプレミスと接続します
 - VM数に1をセットすると、Windows 10 Pro 20H2を1台、Spoke Networkに作るので、テスト用に使えます。例えばAzure Firewallのルールやオンプレミス環境との疎通確認など
 
@@ -86,7 +86,7 @@ Azure Firewall PremiumのTLS Inspectionで使う証明書に、Active Directory 
 [![Deploy To Azure](https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/deploytoazure.svg?sanitize=true)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3a%2f%2fraw.githubusercontent.com%2ftakeokams%2fwvd-reference-architecture%2fmain%2fazurefilesdeploy.json)
 
 補足
-- WVDではWindowsのプロファイルをFSLogixを使ってローミングできるようにしますが、そのプロファイル置き場としての共有ボリュームをAzure Files上に作成します
+- AVDではWindowsのプロファイルをFSLogixを使ってローミングできるようにしますが、そのプロファイル置き場としての共有ボリュームをAzure Files上に作成します
 - ストレージアカウントの名前は、Azure全体の中でユニーク(他で使われていない)なものを指定する必要があります。ストレージアカウント作成のブレードを出して事前に確認しておくのがおすすめです
 - パフォーマンス上の理由(認証が終わってからデスクトップ画面が開くまでの時間)から、同時利用が100人を超えるような環境の場合は、Azure FilesではなくAzure NetApp Filesを利用検討することを推奨します
 
@@ -138,13 +138,13 @@ $storageAccount.AzureFilesIdentityBasedAuth.ActiveDirectoryProperties
 
 #### 権限をまとめたセキュリティグループを作成
 ```powershell
-# WVDを利用するユーザーをまとめたグループ (要件によって、設計する必要あり)
+# AVDを利用するユーザーをまとめたグループ (要件によって、設計する必要あり)
 New-ADGroup -Name "WVD_Users" -GroupScope Global -GroupCategory Security -Description "Members of this group are WVD users"
 #FSLogixに関するAzure Filesへの権限グループ
 New-ADGroup -Name "AZF FSLogix Contributor" -GroupScope Global -GroupCategory Security -Description "Members of this group are FSLogix Contributor"
 New-ADGroup -Name "AZF FSLogix Elevated Contributor" -GroupScope Global -GroupCategory Security -Description "Members of this group are FSLogix Elevated Contributor"
 New-ADGroup -Name "AZF FSLogix Reader" -GroupScope Global -GroupCategory Security -Description "Members of this group are FSLogix Reader"
-# WVDユーザーがFSLogixのプロファイルを置くAzure Filesへアクセスするための登録
+# AVDユーザーがFSLogixのプロファイルを置くAzure Filesへアクセスするための登録
 Add-ADGroupMember -Identity "AZF FSLogix Contributor" -Members "WVD_Users"
 # Azure AD Connectの同期を開始して、上記を即時反映
 Start-ADSyncSyncCycle -PolicyType Delta
@@ -279,12 +279,12 @@ Remove-PSDrive -Name $mount_drv
 
 のようにプロファイルの場所を指定できます。
 ### アクセス権限
-ユーザーがプロファイルを置くためには`AZF FSLogix Contributor`グループに属している必要があります。上記で作ったセキュリティグループでは、`WVD_Users`にユーザー登録するのがよいでしょう。このユーザーを、WVDのアプリケーショングループに許可することで、簡単に権限管理をすることができます。
+ユーザーがプロファイルを置くためには`AZF FSLogix Contributor`グループに属している必要があります。上記で作ったセキュリティグループでは、`WVD_Users`にユーザー登録するのがよいでしょう。このユーザーを、AVDのアプリケーショングループに許可することで、簡単に権限管理をすることができます。
 
 # ここから
-これで、WVDをデプロイする環境が整いました。
+これで、AVDをデプロイする環境が整いました。
 
-ホストプール等関連リソースを作成し、ログ関連の設定をして、グループポリシーかイメージファイルの中でFSLogix VHDの場所をし、利用者を割り当てれば、WVDとして最低限の利用環境が整います。
+ホストプール等関連リソースを作成し、ログ関連の設定をして、グループポリシーかイメージファイルの中でFSLogix VHDの場所をし、利用者を割り当てれば、AVDとして最低限の利用環境が整います。
 
 さらに、日本語イメージの準備、ファイアウォール許可ルールの設定、各種利用ポリシーの設定、電源管理などを行う必要があるでしょう。
 
@@ -294,7 +294,7 @@ Remove-PSDrive -Name $mount_drv
 
 - [Quick Start Template: Create a new AD Domain with 2 DCs using Availability Zones](https://azure.microsoft.com/ja-jp/resources/templates/active-directory-new-domain-ha-2-dc-zones/)
 
-- [Windows Virtual Desktopで使う日本語UIのWindows 10 + Officeのマスターイメージを作る](https://qiita.com/takeokams/items/4e0753047822b13bbcf7)
+- [Azure Virtual Desktopで使う日本語UIのWindows 10 + Officeのマスターイメージを作る](https://qiita.com/takeokams/items/4e0753047822b13bbcf7)
 
 - [WVDの監視機能であるAzure Monitorを使ってみる](https://qiita.com/takeokams/items/8cfb1dba57f7afe9653c)
 
