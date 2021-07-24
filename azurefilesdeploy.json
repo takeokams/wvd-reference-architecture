@@ -13,7 +13,7 @@
             "type": "string",
             "minLength": 3,
             "maxLength": 63,
-            "defaultValue": "wvdfileshare",
+            "defaultValue": "avdfileshare",
             "metadata": {
                 "description": "Specifies the name of the File Share. File share names must be between 3 and 63 characters in length and use numbers, lower-case letters and dash (-) only."
             }
