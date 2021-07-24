@@ -139,13 +139,13 @@ $storageAccount.AzureFilesIdentityBasedAuth.ActiveDirectoryProperties
 #### 権限をまとめたセキュリティグループを作成
 ```powershell
 # AVDを利用するユーザーをまとめたグループ (要件によって、設計する必要あり)
-New-ADGroup -Name "WVD_Users" -GroupScope Global -GroupCategory Security -Description "Members of this group are WVD users"
+New-ADGroup -Name "AVD_Users" -GroupScope Global -GroupCategory Security -Description "Members of this group are AVD users"
 #FSLogixに関するAzure Filesへの権限グループ
 New-ADGroup -Name "AZF FSLogix Contributor" -GroupScope Global -GroupCategory Security -Description "Members of this group are FSLogix Contributor"
 New-ADGroup -Name "AZF FSLogix Elevated Contributor" -GroupScope Global -GroupCategory Security -Description "Members of this group are FSLogix Elevated Contributor"
 New-ADGroup -Name "AZF FSLogix Reader" -GroupScope Global -GroupCategory Security -Description "Members of this group are FSLogix Reader"
 # AVDユーザーがFSLogixのプロファイルを置くAzure Filesへアクセスするための登録
-Add-ADGroupMember -Identity "AZF FSLogix Contributor" -Members "WVD_Users"
+Add-ADGroupMember -Identity "AZF FSLogix Contributor" -Members "AVD_Users"
 # Azure AD Connectの同期を開始して、上記を即時反映
 Start-ADSyncSyncCycle -PolicyType Delta
 ```
@@ -160,7 +160,7 @@ New-AzRoleAssignment -ObjectId (Get-AzADGroup -DisplayName "AZF FSLogix Reader")
 #### ストレージアカウントにある共有ボリュームのマウント
 ````powershell
 # 異なる名前で共有名を設定している場合は置き換える必要あり
-$share_name = "wvdfileshare"
+$share_name = "avdfileshare"
 # Azure Portalで、ストレージアカウントのアクセスキーを確認し置き換える必要あり
 # パスワードにはADのポリシーにより有効期限がある場合があり、https://docs.microsoft.com/ja-jp/azure/storage/files/storage-files-identity-ad-ds-update-passwordを事前に参照して運用を検討する必要あり
 $st_key = "access_key"
@@ -275,11 +275,11 @@ Remove-PSDrive -Name $mount_drv
 
 ## 利用の仕方
 ### FSLogix VHDパス
-`\\<storage_account>.file.core.windows.net\wvdfileshare\Profiles`
+`\\<storage_account>.file.core.windows.net\avdfileshare\Profiles`
 
 のようにプロファイルの場所を指定できます。
 ### アクセス権限
-ユーザーがプロファイルを置くためには`AZF FSLogix Contributor`グループに属している必要があります。上記で作ったセキュリティグループでは、`WVD_Users`にユーザー登録するのがよいでしょう。このユーザーを、AVDのアプリケーショングループに許可することで、簡単に権限管理をすることができます。
+ユーザーがプロファイルを置くためには`AZF FSLogix Contributor`グループに属している必要があります。上記で作ったセキュリティグループでは、`AVD_Users`にユーザー登録するのがよいでしょう。このユーザーを、AVDのアプリケーショングループに許可することで、簡単に権限管理をすることができます。
 
 # ここから
 これで、AVDをデプロイする環境が整いました。
